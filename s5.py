@@ -625,11 +625,23 @@ class MainWindow(QMainWindow):
                 time.sleep(0.5)  # 부하 조절
                 
             # Trace 종목 실시간 데이터 수신 시작
+            code_list = []
             for i in range(self.trace_stock_list.count()):
                 code = self.trace_stock_list.item(i).text().split('-')[0].strip()
+                code_list.append(code)
                 self.initializeStockData(code)
-                self.kiwoom.set_real_reg("0101", code, "10;11;12;15;20", "0")
-                time.sleep(0.2)  # 부하 조절
+        
+            # 모든 종목을 한 번에 등록 (최대 100개 제한)
+            if code_list:
+                codes = ";".join(code_list[:100])  # 32bit 환경에서 100개로 제한
+                screen_no = "9999"  # 고정 화면번호 사용
+                fid_list = "10;11;12;15;20"  # 필요한 FID 목록
+                ret = self.kiwoom.set_real_reg(screen_no, codes, fid_list, "0")
+                if ret == 0:
+                    logging.error("실시간 등록 실패: 인자 오류")
+            else:
+                logging.info(f"실시간 등록 성공: {len(code_list)}개 종목")
+                #time.sleep(0.2)  # 부하 조절
                 
             # 실시간 데이터 처리 스레드 시작
             self.processing_thread = threading.Thread(target=self.processRealTimeData)
@@ -841,7 +853,9 @@ class MainWindow(QMainWindow):
                 self.kiwoom.send_condition("0156", condition, int(condition_index), 0)
                 
             # 실시간 데이터 수신 중단
-            self.kiwoom.disconnect_real_data("0101")
+            #self.kiwoom.disconnect_real_data("0101")
+            self.kiwoom.disconnect_real_data("9999")
+            #self.kiwoom.dynamicCall("DisconnectRealData(QString)", "9999")
             
             if self.processing_thread:
                 self.processing_thread.join(timeout=1.0)
